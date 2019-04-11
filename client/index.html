@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+      integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+      crossorigin="anonymous">
+
+    <title>Classic Fox - First Live Code</title>
+  </head>
+  <body>
+    <div id="app">
+      <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+          <a class="navbar-brand" href="/">Dad Jokes</a>
+          <a href="#" class="text-danger" v-if="loggedIn" @click="handleLogout">Logout</a>
+        </div>
+      </nav>
+      <div class="container my-4" v-if="!loggedIn">
+        <div class="row justify-content-center">
+          <div class="col-xm-10 col-m-4">
+            <div class="card mb-4">
+              <div class="card-header text-center">Login</div>
+              <div class="card-body">
+                <form method="post" @submit.prevent>
+                  <div class="form-group">
+                    <label for="email">Email address</label>
+                    <input
+                      type="email"
+                      class="form-control"
+                      id="email"
+                      aria-describedby="emailHelp"
+                      placeholder="Enter email"
+                      v-model="authForm.email">
+                    <small id="emailHelp" class="form-text text-muted">
+                We'll never share your email with anyone else.
+                    </small>
+                  </div>
+                  <div class="form-group">
+                    <label for="password">Password</label>
+                    <input
+                      type="password"
+                      class="form-control"
+                      id="password"
+                      placeholder="Password"
+                      v-model="authForm.password">
+                  </div>
+                  <button type="submit" class="btn btn-primary" @click="handleLogin">Login</button>
+                  <button type="submit" class="btn" @click="handleRegister">Register</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="jumbotron" v-if="loggedIn">
+        <div class="container">
+          <h1 class="display-4">{{ joke }}</h1>
+          <hr class="my-4">
+          <p>Do you like this joke?</p>
+          <a class="btn btn-success" href="#" role="button" @click="handleAddJoke">Yes, add this to My Favorites</a>
+          <a class="btn btn-danger" href="#" role="button" @click="generateNewJoke">No, generate new joke</a>
+        </div>
+      </div>
+      <div class="container" v-if="loggedIn">
+        <h1 class="text-center">My Favorites</h1>
+        <hr class="my-4">
+        <div class="row">
+          <div class="col-lg-4 mb-4" v-for="joke in getJokes">
+            <div class="card">
+              <div class="card-body">
+                <p class="card-text">{{ joke.text }}</p>
+                <a href="#" class="card-link text-danger" @click="handleRemove(joke._id)">Remove</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.18.0/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.common.dev.js"></script>
+    <script>
+    var ax = axios.create({
+      baseURL: 'http://localhost:3000'
+    })
+
+    var app = new Vue({
+      el: '#app',
+      data: {
+        authForm: {
+          email: '',
+          password: ''
+        },
+        jokes: [],
+        joke: '',
+        loggedIn: false
+      },
+      created () {
+        this.generateNewJoke()
+
+        ax.get('/jokes', { headers: { 'access-token': this.access_token }})
+          .then(({ data }) => {
+            this.jokes = data
+          })
+          .catch(err => console.log(err))
+      },
+      computed: {
+        access_token () {
+          return localStorage.getItem('access_token')
+        },
+        getJoke () {
+          return this.joke
+        },
+        getJokes () {
+          return this.jokes
+        }
+      },
+      methods: {
+        handleLogin () {
+          ax.post('/login', this.authForm)
+            .then(({ data }) => {
+              localStorage.setItem('access_token', data.access_token)
+              this.loggedIn = true
+            })
+            .catch(err => console.log(err))
+        },
+        handleRegister () {
+          ax.post('/register', this.authForm)
+            .then(({ data }) => {
+              this.authForm = { email: '', password: '' }
+            })
+            .catch(err => console.log(err))
+        },
+        generateNewJoke () {
+          axios.get('https://icanhazdadjoke.com/', { headers: {
+            'Accept': 'application/json'
+          }})
+            .then(({ data }) => {
+              this.joke = data.joke
+            })
+            .catch(err => console.log(err))
+        },
+        handleAddJoke () {
+          console.log(this.access_token)
+          ax.post('/favorites', { joke: this.joke }, { headers: {
+            'access-token': this.access_token
+          }})
+            .then(({ data }) => {
+              this.jokes.push(data)
+              this.generateNewJoke()
+            })
+            .catch(err => console.log(err))
+        },
+        fetchJokes () {
+          ax.get('/jokes', { headers: { 'access-token': this.access_token }})
+            .then(({ data }) => {
+              this.jokes = data
+            })
+            .catch(err => console.log(err))
+        },
+        handleRemove (joke_id) {
+          ax.delete(`/favorites/${joke_id}`, { headers: {
+            'access-token': this.access_token
+          }})
+            .then(() => {
+              this.fetchJokes()
+            })
+            .catch(err => console.log(err))
+        },
+        handleLogout () {
+          localStorage.removeItem('access_token')
+          this.loggedIn = false
+        }
+      }
+    })
+    </script>
+  </body>
+</html>
